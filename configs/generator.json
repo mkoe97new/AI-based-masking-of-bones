@@ -1,0 +1,16 @@
+{
+    "Directories": {
+        "BaseDirectory": null,
+        "InputDirectory": "project_images_3d",
+        "TrainDirectory": "train_images",
+        "TestDirectory": "test_images",
+        "PredDirectory": "pred_images"
+    },
+    "Settings": {
+        "Downsampling": 2,
+        "OrderName": "Interpolation",
+        "ZeroPaddingTo": [1536, 640, 512],
+        "TrainDataSize": 0.7,
+        "Seed": 42
+    }
+}

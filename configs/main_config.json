@@ -1,0 +1,28 @@
+{
+    "ProjectName": "VNet",
+    "Settings": {
+        "Server": true,
+        "ModelName": "train_new_001_30e_2d",
+        "SegmentationClasses": [0,1,2],
+        "InputChannels": 1,
+        "BatchSize": 10,
+        "PatchSize": [64, 64, 64],
+        "Testing": "not",
+        "SummaryLogDir": "results",
+        "Network": {
+            "Epochs": 30,
+            "Dropout": true,
+            "DropoutRate": 0.2,
+            "Initializer": "xavier",
+            "Loss": "CategoricalCrossentropyLoss",
+            "ActivationFunction": "relu",
+            "NetworkSavingRange": 30,
+            "NetworkSavingPath": "model/",
+            "ExistingModel": "model/train_new_001/patch0/model_epoch2.keras",
+            "Optimizer":{
+                "Name": "Adam",
+                "LearningRate": 0.01
+            }
+        }
+    }
+}

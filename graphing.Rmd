@@ -1,0 +1,160 @@
+---
+title: "Model_Evaluation"
+author: "Max Kößlbacher"
+date: "2026-04-18"
+output: html_document
+---
+
+```{r}
+library(readr)
+library(dplyr)
+library(purrr)
+library(ggplot2)
+```
+
+### Read In Datasets
+```{r}
+filepath <- "results/train_new_001"
+training_files <- list.files(
+  filepath,
+  pattern = "train.*\\.csv$",
+  full.names = TRUE
+)
+
+testing_files <- list.files(
+  filepath
+  pattern = "test.*\\.csv$",
+  full.names = TRUE
+)
+```
+
+### Create Datasets
+```{r}
+combined_training_data <- training_files %>%
+  map_df(read_csv)
+
+combined_training_data
+```
+
+
+```{r}
+combined_test_data <- test_files %>%
+  map_df(read_csv)
+
+combined_test_data
+```
+
+### Create Patch Datasets
+```{r}
+patch_train_dataset <- combined_training_data %>%
+  group_by(patch) %>%
+  slice_max(order_by = epoch, n = 1, with_ties = FALSE) %>%
+  ungroup()
+```
+
+```{r}
+patch_test_dataset <- combined_test_data %>%
+  group_by(patch) %>%
+  slice_max(order_by = epoch, n = 1, with_ties = FALSE) %>%
+  ungroup()
+```
+
+### Draw Training Graphs
+```{r}
+ggplot(combined_training_data, aes(x = epoch, y = loss)) +
+  geom_line(alpha = 0.5) +
+  labs(
+    title = "Epoch vs Loss",
+    x = "Epoch",
+    y = "Loss"
+  ) +
+  theme_minimal()
+
+ggplot(combined_training_data, aes(x = epoch, y = accuracy)) +
+  geom_line(alpha = 0.5) +
+  labs(
+    title = "Epoch vs Accuracy",
+    x = "Epoch",
+    y = "Accuracy"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+ggplot(patch_train_dataset, aes(x = epoch, y = loss)) +
+  geom_line(alpha = 0.5) +
+  labs(
+    title = "Epoch vs Loss per Patch",
+    x = "Epoch",
+    y = "Loss"
+  ) +
+  theme_minimal()
+
+ggplot(patch_train_dataset, aes(x = epoch, y = accuracy)) +
+  geom_line(alpha = 0.5) +
+  labs(
+    title = "Epoch vs Accuracy per Patch",
+    x = "Epoch",
+    y = "Accuracy"
+  ) +
+  theme_minimal()
+```
+
+### Draw Tesing Graphs
+```{r}
+ggplot(combined_test_data, aes(x = epoch, y = loss)) +
+  geom_line(alpha = 0.5) +
+  labs(
+    title = "Epoch vs Loss",
+    x = "Epoch",
+    y = "Loss"
+  ) +
+  theme_minimal()
+
+ggplot(combined_test_data, aes(x = epoch, y = accuracy)) +
+  geom_line(alpha = 0.5) +
+  labs(
+    title = "Epoch vs Accuracy",
+    x = "Epoch",
+    y = "Accuracy"
+  ) +
+  theme_minimal()
+
+ggplot(combined_test_data, aes(x = epoch, y = mean_iou)) +
+  geom_line(alpha = 0.5) +
+  labs(
+    title = "Epoch vs Mean IoU",
+    x = "Epoch",
+    y = "Mean IoU"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+ggplot(patch_test_dataset, aes(x = epoch, y = loss)) +
+  geom_line(alpha = 0.5) +
+  labs(
+    title = "Epoch vs Loss per Patch",
+    x = "Epoch",
+    y = "Loss"
+  ) +
+  theme_minimal()
+
+ggplot(patch_test_dataset, aes(x = epoch, y = accuracy)) +
+  geom_line(alpha = 0.5) +
+  labs(
+    title = "Epoch vs Accuracy per Patch",
+    x = "Epoch",
+    y = "Accuracy"
+  ) +
+  theme_minimal()
+
+ggplot(patch_test_dataset, aes(x = epoch, y = mean_iou)) +
+  geom_line(alpha = 0.5) +
+  labs(
+    title = "Epoch vs Mean IoU per Patch",
+    x = "Epoch",
+    y = "Mean IoU"
+  ) +
+  theme_minimal()
+```

@@ -39,3 +39,14 @@
 
 # debug information files
 *.dwo
+
+# Project folders to ignore
+logs/
+model/
+old/
+project_images_3d/
+project_images_3d_one/
+project_images_3d_some/
+train_images/
+test_images/
+results/
