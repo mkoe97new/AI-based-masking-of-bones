@@ -53,7 +53,7 @@ class SaveTestDataResults(tf.keras.callbacks.Callback):
         super(SaveTestDataResults, self).__init__()
         self.patch = patch
         self.csv_path = results_path / Path("test_log" + str(patch) + ".csv")
-        self.cm_path = results_path / Path("confusion_matrix_pretty.png")
+        self.cm_path = results_path / Path("confusion_matrix_pretty" + str(patch) + ".png")
         self.test_patching = Patching(patch_size, test_data_dir)
         self.seed = seed
         self.num_classes = num_classes
@@ -103,7 +103,6 @@ class SaveTestDataResults(tf.keras.callbacks.Callback):
             )
 
             test_dataset = self.test_patching.shuffle(test_dataset, self.seed, 1)
-
             for image_patch, gt_patch in test_dataset.take(1):
                 pred_logits = self.model(image_patch, training=False)
                 loss_value = self.loss_function(gt_patch, pred_logits).numpy()
@@ -169,6 +168,9 @@ class SaveTestDataResults(tf.keras.callbacks.Callback):
 
                 plt.savefig(self.cm_path)
                 plt.close()
+
+    def set_model(self, model):
+        super().set_model(model)
 
 
 

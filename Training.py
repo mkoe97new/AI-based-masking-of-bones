@@ -1,25 +1,19 @@
 import datetime
-import math
 import os
-import glob
-import random
 import sys
 from pathlib import Path
-
-import tensorflow as tf
-import numpy as np
 import time
 
 from tabulate import tabulate
 from tqdm import tqdm
 
-from Image8 import Image
+from Helper import Helper
 from Callbacks import SaveTrainDataResults, SaveNetwork, SaveTestDataResults
 from VNet10 import VNet
 from Patching import Patching
 
 
-class ImageModel:
+class Training:
     def __init__(self, config, image_generator_config_json):
         self.config = config
         self.image_generator_config_json = image_generator_config_json
@@ -43,9 +37,6 @@ class ImageModel:
 
         self.seed = self.image_generator_config_json['Settings']['Seed']
         self.downsampling = self.image_generator_config_json['Settings']['Downsampling']
-
-        # config
-        self.server = self.config['Settings']['Server']
 
         # training configuration
         self.model_name = self.config['Settings']['ModelName']
@@ -104,90 +95,14 @@ class ImageModel:
         headers = ["Parameter", "Value"]
         print(tabulate(data, headers=headers, tablefmt="fancy_grid"))
 
-    def set_seed(self):
-        tf.random.set_seed(self.seed)
-        np.random.seed(self.seed)
-        random.seed(self.seed)
-        os.environ['PYTHONHASHSEED'] = str(self.seed)
-
     def build_VNet(self, optimizer, loss_function):
         print("Build VNet...")
         if self.dropout:
-            self.network = VNet(self.initializer_name, self.activation_function_name, self.dropoutrate)
+            network = VNet(self.initializer_name, self.activation_function_name, self.dropoutrate)
         else:
-            self.network = VNet(self.initializer_name, self.activation_function_name, 0.0)
-        self.network.compile(optimizer=optimizer, loss=loss_function, metrics=["accuracy"])
-
-    def load_VNet(self, optimizer, loss_function):
-        print("Loading VNet...")
-        self.network = tf.keras.models.load_model(self.existing_model, custom_objects={'VNet': VNet})
-        self.network.compile(optimizer=optimizer, loss=loss_function, metrics=["accuracy"])
-
-    def get_optimizer(self):
-        if self.optimizer_name == 'SGD':
-            optimizer = tf.keras.optimizers.SGD(learning_rate=self.learning_rate)
-        elif self.optimizer_name == 'Adam':
-            optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate, clipnorm=1.0)
-        elif self.optimizer_name == 'RMSprop':
-            optimizer = tf.keras.optimizers.RMSprop(learning_rate=self.learning_rate)
-        elif self.optimizer_name == 'Adagrad':
-            optimizer = tf.keras.optimizers.Adagrad(learning_rate=self.learning_rate)
-        else:
-            optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate, clipnorm=1.0)
-        return optimizer
-
-    def get_loss_function(self):
-        if self.loss_function_name == 'CategoricalCrossentropyLoss':
-            loss_function = tf.keras.losses.SparseCategoricalCrossentropy()
-        elif self.loss_function_name == 'DiceLoss':
-            loss_function = tf.keras.losses.Dice()
-        else:
-            loss_function = tf.keras.losses.SparseCategoricalCrossentropy()
-        return loss_function
-
-    def get_dimsize_from_mhd(self, file_path: Path):
-        with open(file_path, "r") as f:
-            for line in f:
-                if line.startswith("DimSize"):
-                    _, value = line.split("=")
-                    dims = tuple(map(int, value.strip().split()))
-                    return dims
-        raise ValueError(f"No DimSize found in {file_path}")
-
-    def dim_sizes_to_dhw_config(self, whd_tuple):
-        whd_list = list(whd_tuple)
-        dhw_list = [whd_list[2], whd_list[1], whd_list[0]]
-        dhw_tuple = tuple(dhw_list)
-
-        return dhw_tuple
-
-    def read_dimension(self, read_in_dir):
-        dim_sizes = []
-
-        for mhd_file in read_in_dir.glob("*.mhd"):
-            dims = self.get_dimsize_from_mhd(mhd_file)
-            dim_sizes.append(dims)
-
-        if not dim_sizes:
-            raise ValueError("No .mhd files found")
-
-        first = dim_sizes[0]
-
-        for file_dims in dim_sizes:
-            if file_dims != first:
-                raise ValueError(
-                    f"Inconsistent DimSize found: {first} vs {file_dims}"
-                )
-
-        dhw = self.dim_sizes_to_dhw_config(first)
-        return dhw
-
-    def count_patches(self, read_in_dir):
-        dimensions = self.read_dimension(read_in_dir)
-        patch_size_tuple = tuple(self.patch_size)
-        num_patches = tuple(d // p for d, p in zip(dimensions, patch_size_tuple))
-        total_patches = math.prod(num_patches)
-        return list(num_patches), total_patches
+            network = VNet(self.initializer_name, self.activation_function_name, 0.0)
+        network.compile(optimizer=optimizer, loss=loss_function, metrics=["accuracy"])
+        return network
 
     def init_callbacks(self, current_patch_number, total_patches, last_patch_position, loss_function, confusion_matrix):
         train_callback = SaveTrainDataResults(current_patch_number, self.summary_log_dir)
@@ -198,20 +113,20 @@ class ImageModel:
     def train(self):
         print("{}: VNet Tensorflow training start...".format(datetime.datetime.now()))
         self.print_config_parames()
-        self.set_seed()
+        Helper.set_seed(self.seed)
         start_time = time.time()
 
 
-        optimizer = self.get_optimizer()
-        loss_function = self.get_loss_function()
+        optimizer = Helper.get_optimizer(self.optimizer_name, self.learning_rate)
+        loss_function = Helper.get_loss_function(self.activation_function_name)
 
-        last_patch_position, total_patches = self.count_patches(self.train_dir)
+        last_patch_position, total_patches = Helper.count_patches(self.train_dir, self.patch_size)
         current_patch_position = [0,0,0]
 
         if not self.existing_model or not self.existing_model.exists():
-            self.build_VNet(optimizer, loss_function)
+            self.network = self.build_VNet(optimizer, loss_function)
         else:
-            self.load_VNet(optimizer, loss_function)
+            self.network = Helper.load_VNet(self.existing_model, optimizer, loss_function)
 
         os.makedirs(self.network_saving_path, exist_ok=True)
         os.makedirs(self.summary_log_dir, exist_ok=True)
@@ -252,7 +167,6 @@ class ImageModel:
         elapsed_time = end_time - start_time
         print(f"Elapsed time: {elapsed_time} seconds")
 
-        return "in train"
 
     """
     def predict(self):

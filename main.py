@@ -1,12 +1,10 @@
 import argparse
 import json
 import sys
-from image_model14 import ImageModel
+
+from Testing import Testing
+from Training import Training
 from ImageGenerator import ImageGenerator
-
-
-import argparse
-
 
 def get_parser():
     parser = argparse.ArgumentParser(description='Implementation for segmentation.')
@@ -15,7 +13,7 @@ def get_parser():
         '-p', '--phase',
         dest='phase',
         help='Training phase (default=train)',
-        choices=['train', 'generate_images'],
+        choices=['train', 'test', 'generate_images'],
         default='train')
 
     parser.add_argument(
@@ -50,13 +48,16 @@ def main(args):
         generator_config_json = json.load(generator_config_json)
     image_generator = ImageGenerator(generator_config_json)
 
-    if args.phase != "generate_images":
+    if args.phase == "train":
         with open(args.config_json) as config_json:
             config = json.load(config_json)
-        model = ImageModel(config, generator_config_json)
-
-    if args.phase == "train":
-        model.train()
+        training = Training(config, generator_config_json)
+        training.train()
+    elif args.phase == "test":
+        with open(args.config_json) as config_json:
+            config = json.load(config_json)
+        testing = Testing(config, generator_config_json)
+        testing.test()
     elif args.phase == "generate_images":
         image_generator.generate_images()
         image_generator.train_test_split()
