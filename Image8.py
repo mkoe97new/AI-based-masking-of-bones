@@ -148,3 +148,9 @@ class Image:
             order = 1
 
         return order
+
+    def check_if_all_zero(self):
+        values, counts = np.unique(self.voxel_data, return_counts=True)
+
+        for v, c in zip(values, counts):
+            print(f"value {v}: {c}")

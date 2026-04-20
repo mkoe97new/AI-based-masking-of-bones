@@ -61,6 +61,7 @@ def main(args):
     elif args.phase == "generate_images":
         image_generator.generate_images()
         image_generator.train_test_split()
+        #image_generator.check_if_zero()
     else:
         sys.exit("Invalid training phase")
 

@@ -88,4 +88,24 @@ class ImageGenerator:
         print(f"Test pairs moved: {len(test_pairs)}")
         print(f"Test folder: {self.test_dir}")
 
+    def check_if_zero(self):
+        print("{}: Zero checker...".format(datetime.datetime.now()))
+        self.train_dir.mkdir(exist_ok=True)
+
+        for original_mhd in sorted(self.test_dir.glob("original_img*.mhd")):
+            case_id = original_mhd.stem[len("original_img"):]
+            label_mhd = self.test_dir / f"label_img{case_id}.mhd"
+
+            image_original = Image()
+            image_label = Image()
+
+            image_original.constructor_image(original_mhd, case_id)
+            image_label.constructor_image(label_mhd, case_id)
+
+            print(str(original_mhd))
+            image_original.check_if_all_zero()
+            print(str(label_mhd))
+            image_label.check_if_all_zero()
+
+
 

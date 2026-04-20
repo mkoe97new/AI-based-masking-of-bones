@@ -85,8 +85,8 @@ class Testing:
         num_dirs = sum(1 for p in self.network_saving_path.iterdir() if p.is_dir())
         last_patch_position, total_patches = Helper.count_patches(self.test_dir, self.patch_size)
 
-        for current_patch_number in tqdm(range(1, num_dirs, self.test_frequency)):
-            model_path = self.network_saving_path / Path("patch" + str(current_patch_number - 1)) / self.existing_model
+        for current_patch_number in tqdm(range(self.test_frequency, num_dirs, self.test_frequency)):
+            model_path = self.network_saving_path / Path("patch" + str(current_patch_number)) / self.existing_model
 
             self.network = Helper.load_VNet(model_path, optimizer, loss_function)
             test_callback = SaveTestDataResults(current_patch_number, self.summary_log_dir, self.patch_size, self.test_dir, self.seed, len(self.label_classes), total_patches, last_patch_position, loss_function, "full", True)

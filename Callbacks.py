@@ -107,28 +107,25 @@ class SaveTestDataResults(tf.keras.callbacks.Callback):
                 pred_logits = self.model(image_patch, training=False)
                 loss_value = self.loss_function(gt_patch, pred_logits).numpy()
 
-                if self.confusion_matrix is not None:
-                    all_preds.append(pred_logits)
-                    all_gt.append(gt_patch)
-
                 pred = tf.argmax(pred_logits, axis=-1)
-                gt_for_acc = gt_patch
+                pred_np = pred.numpy()
+                gt_np = gt_patch.numpy()
 
-                if len(gt_for_acc.shape) == len(pred.shape) + 1 and gt_for_acc.shape[-1] == 1:
-                    gt_for_acc = tf.squeeze(gt_for_acc, axis=-1)
-                correct = tf.reduce_sum(tf.cast(tf.equal(tf.cast(gt_for_acc, pred.dtype), pred), tf.int64)).numpy()
+                pred_np = np.squeeze(pred_np, axis=0)
+                gt_np = np.squeeze(gt_np, axis=0)
 
-                pred = pred.numpy()
-                gt_patch = gt_patch.numpy()
-                pred = np.squeeze(pred, axis=0)
-                gt_patch = np.squeeze(gt_patch, axis=0)
-                if gt_patch.ndim == pred.ndim + 1 and gt_patch.shape[-1] == 1:
-                    gt_patch = np.squeeze(gt_patch, axis=-1)
+                gt_np = np.squeeze(gt_np, axis=-1)
 
-                intersections, unions = self.intersection_union_per_patch(gt_patch, pred, self.num_classes)
+                if self.confusion_matrix is not None:
+                    all_preds.append(pred_np.flatten())
+                    all_gt.append(gt_np.flatten())
+
+                correct = tf.reduce_sum(tf.cast(tf.equal(tf.cast(gt_np, pred_np.dtype), pred_np), tf.int64)).numpy()
+
+                intersections, unions = self.intersection_union_per_patch(gt_np, pred_np, self.num_classes)
                 total_intersections += intersections
                 total_unions += unions
-                patch_voxels = np.prod(pred.shape)
+                patch_voxels = np.prod(pred_np.shape)
                 total_loss += float(loss_value) * patch_voxels
                 total_correct += int(correct)
                 total_voxels += int(patch_voxels)
@@ -141,12 +138,10 @@ class SaveTestDataResults(tf.keras.callbacks.Callback):
         mean_iou = np.mean(iou_per_class[valid_classes]) if np.any(valid_classes) else 0.0
 
         if self.confusion_matrix is not None:
-            all_preds_classes = np.argmax(all_preds, axis=-1)
-            all_gt_classes = np.argmax(all_gt, axis=-1)
-            all_preds_flat = all_preds_classes.flatten()
-            all_gt_flat = all_gt_classes.flatten()
-            cm = confusion_matrix(all_gt_flat, all_preds_flat, labels=list(range(self.num_classes)))
+            all_preds_flat = np.concatenate(all_preds).astype(np.int32)
+            all_gt_flat = np.concatenate(all_gt).astype(np.int32)
 
+            cm = confusion_matrix(all_gt_flat, all_preds_flat, labels=list(range(self.num_classes)))
         return mean_loss, mean_accuracy, mean_iou, cm
 
     def on_train_end(self, logs=None):
