@@ -1,6 +1,8 @@
 import argparse
 import json
 import sys
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 from Testing import Testing
 from Training import Training
@@ -52,15 +54,21 @@ def main(args):
         with open(args.config_json) as config_json:
             config = json.load(config_json)
         training = Training(config, generator_config_json)
-        training.train()
+        if training.random:
+            training.random_patch_train()
+        else:
+            training.train()
     elif args.phase == "test":
         with open(args.config_json) as config_json:
             config = json.load(config_json)
         testing = Testing(config, generator_config_json)
         testing.test()
     elif args.phase == "generate_images":
-        image_generator.generate_images()
-        image_generator.train_test_split()
+        if image_generator.random:
+            image_generator.generate_random_images()
+        else:
+            image_generator.generate_images()
+            image_generator.train_test_split()
         #image_generator.check_if_zero()
     else:
         sys.exit("Invalid training phase")

@@ -60,12 +60,20 @@ Controls preprocessing and dataset splitting.
     "PredDirectory": ..., // Directory name, where the prediciton images are saved (string)
   },
   "Settings": {
+    "Random": ..., // Defines if random patching should be actived. This means, that random patch samples for training in a new directory are generated from the train dataset. The train dataset must have been created with random = false before to generate with true. Needed parameters are defined in RandomGeneratorSpecifics (boolean)
     "Downsampling": ..., // Definition of a downsampling factor if wanted, should be 1 if not used (int)
     "OrderName": ..., // Definition how voxels should be interpolated when downsampling is active (string)
     "ZeroPaddingTo": ..., // How much the image should be zero-padded, should align with the patch_size used in the training and testing setup e.g.: [1536, 640, 512] (array)
+    "PatchSize": ..., // Patch size, defining the size of one patch that traverses the total image e.g: [64, 64, 64] (array)
     "TrainDataSize": ..., // Size of the training set (int 0-1)
-    "Seed": ..., // Seed that should be used in the project for reproducibility (int)
-  }
+    "Seed": ... // Seed that should be used in the project for reproducibility (int)
+  },
+  "RandomGeneratorSpecifics": {
+        "ZeroMaxPercentage": ..., // Defines the max percentage of background voxels in an image to be accepted. This is needed for FgPatchesPercentage amount of the images (float 0-1)
+        "RetryAmount": ..., // Defines the number retries that are done if the cut out sample does have more zeros in the image than the percentage defined in ZeroMaxPercentage (int), If retryAmount is reached --> a log message shows up that image"number" was not created
+        "FgPatchesPercentage": ..., // Defines the percentage for the amount of sample images where there have to be less zeros in the image than ZeroMaxPercentage defines
+        "TrainSamples": ... // Defines the number of train samples that should be created from the original train dataset in the new traing dataset directory
+    }
 }
 ```
 ### 2. Training Configuration (`main_config.json`)
@@ -80,7 +88,6 @@ Controls training and inbetween testing if wanted.
     "SegmentationClasses": ..., // Segmentation classes of the output e.g.: [0,1,2] (array)
     "InputChannels": ..., // Should be 1 as we are working with black and white images (int)
     "BatchSize": ..., // Batch size, defining how many images are processed at once
-    "PatchSize": ..., // Patch size, defining the size of one patch that traverses the total image e.g: [64, 64, 64] (array)
     "Testing": ..., // Testing which is done during the training process either full/end/not (string)
     "SummaryLogDir": ..., // Directory where the results is saved like csvs and confusion matrix (string)
     "Network": {
@@ -88,7 +95,7 @@ Controls training and inbetween testing if wanted.
       "Dropout": ..., // Should dropout be used (boolean)
       "DropoutRate": ..., // Defines the dropoutrat if "Dropout" is true (float 0-1)
       "Initializer": ..., // Defines the initializer either normal/xavier/he/orthogonal (string)
-      "Loss": ..., // Defines the loss either CategoricalCrossentropyLoss/DiceLoss (string)
+      "Loss": ..., // Defines the loss either DiceLossCategoricalCrossentropyLoss/CategoricalCrossentropyLoss/DiceLoss (string)
       "ActivationFunction": ..., // Defines the activation function either prelu/lrelu/sigmoid/tanh/softmax/relu (string)
       "NetworkSavingRange": ..., // The epoch range in which the network is saved. If equal to epochs then at the end of every patch (int)
       "NetworkSavingPath": ..., // Directory where the network is saved as keras file (string)

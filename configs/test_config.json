@@ -5,7 +5,7 @@
         "SegmentationClasses": [0,1,2],
         "PatchSize": [64, 64, 64],
         "SummaryLogDir": "results",
-        "TestFrequency": 20,
+        "TestFrequency": 239,
         "Network": {
             "ActivationFunction": "relu",
             "NetworkSavingPath": "model/",

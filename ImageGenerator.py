@@ -1,7 +1,12 @@
 import datetime
+import glob
+import os
 import shutil
 from pathlib import Path
 import random
+
+import numpy as np
+from tqdm import tqdm
 
 from Image8 import Image
 
@@ -18,11 +23,18 @@ class ImageGenerator:
             self.train_dir = base_path / Path(config['Directories']['TrainDirectory'])
             self.test_dir = base_path / Path(config['Directories']['TestDirectory'])
 
+        self.random = config['Settings']['Random']
         self.downsampling = config['Settings']['Downsampling']
         self.order_name = config['Settings']['OrderName']
         self.zero_padding_to = config['Settings']['ZeroPaddingTo']
+        self.patch_size = config['Settings']['PatchSize']
         self.train_data_size = config['Settings']['TrainDataSize']
         self.seed = config['Settings']['Seed']
+
+        self.zero_max_percentage = config['RandomGeneratorSpecifics']['ZeroMaxPercentage']
+        self.retry_amount = config['RandomGeneratorSpecifics']['RetryAmount']
+        self.fg_patches_percentage = config['RandomGeneratorSpecifics']['FgPatchesPercentage']
+        self.train_samples = config['RandomGeneratorSpecifics']['TrainSamples']
 
 
     def generate_images(self):
@@ -87,6 +99,77 @@ class ImageGenerator:
         print(f"Train pairs kept in place: {len(train_pairs)}")
         print(f"Test pairs moved: {len(test_pairs)}")
         print(f"Test folder: {self.test_dir}")
+
+    def generate_random_images(self):
+        print("{}: Generate random patched images...".format(datetime.datetime.now()))
+        self.train_dir.mkdir(exist_ok=True)
+        random.seed(self.seed)
+        original_files = sorted(self.input_dir.glob("*original*.mhd"))
+        rng = random.Random(self.seed)
+
+        pairs = []
+        for _ in range(self.train_samples):
+            orig = rng.choice(original_files)
+            label = orig.with_name(orig.name.replace("original", "label"))
+            pairs.append((orig, label))
+
+        fg_patches_reached = False
+        for index, (original_file, label_file) in enumerate(tqdm(pairs)):
+            image = Image()
+            image_label = Image()
+            image.constructor_image(original_file, index)
+            image_label.constructor_image(label_file, index)
+
+            not_accepted = True
+            i = 0
+            while not_accepted and i < self.retry_amount:
+                d_start = rng.randint(0, image.depth  - self.patch_size[0])
+                h_start = rng.randint(0, image.height - self.patch_size[1])
+                w_start = rng.randint(0, image.width  - self.patch_size[2])
+
+                start_and_end = [
+                    d_start, d_start + self.patch_size[0],
+                    h_start, h_start + self.patch_size[1],
+                    w_start, w_start + self.patch_size[2],
+                ]
+
+                image_roi = image.get_roi(start_and_end)
+                label_roi = image_label.get_roi(start_and_end)
+
+                not_accepted = self.contains_more_zeros_than_allowed(self.zero_max_percentage, label_roi)
+                if fg_patches_reached:
+                    break
+
+                i += 1
+
+            if i == self.retry_amount:
+                print("Random Roi not found {}".format(index))
+            else:
+                image.voxel_data = image_roi
+                image.depth = image_roi.shape[0]
+                image.height = image_roi.shape[1]
+                image.width = image_roi.shape[2]
+                image_label.voxel_data = label_roi
+                image_label.depth = label_roi.shape[0]
+                image_label.height = label_roi.shape[1]
+                image_label.width = label_roi.shape[2]
+
+                image.save_image(self.train_dir, True)
+                image_label.save_image(self.train_dir, False)
+
+            if (index / len(pairs)) >= self.fg_patches_percentage:
+                fg_patches_reached = True
+
+        count = len(glob.glob(os.path.join(self.train_dir, "*original*.mhd")))
+        print(f"Total train images created: {count}")
+
+    def contains_more_zeros_than_allowed(self, zero_max_percentage, label_roi):
+        zero_fraction = np.mean(label_roi == 0)
+        if zero_fraction > zero_max_percentage:
+            return True
+        else:
+            return False
+
 
     def check_if_zero(self):
         print("{}: Zero checker...".format(datetime.datetime.now()))

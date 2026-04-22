@@ -25,13 +25,13 @@ class Image:
         self.image_number = index
 
     def constructor_original_image(self, image_label):
-        self.width = image_label.get_width()
-        self.height = image_label.get_height()
-        self.depth = image_label.get_depth()
-        self.spacing = image_label.get_spacing()
-        self.image_number = image_label.get_image_number()
-        self.sitk_image = image_label.get_sitk_image()
-        self.voxel_data = image_label.get_voxel_data()
+        self.width = image_label.width
+        self.height = image_label.height
+        self.depth = image_label.depth
+        self.spacing = image_label.spacing
+        self.image_number = image_label.image_number
+        self.sitk_image = image_label.sitk_image
+        self.voxel_data = image_label.voxel_data
 
     def generate_image_label(self):
         modified_image = np.select(
@@ -81,30 +81,6 @@ class Image:
             image = sitk.GetImageFromArray(self.voxel_data)
 
             sitk.WriteImage(image, mhd_file_path)
-
-    def set_voxel_data(self, voxel_data):
-        self.voxel_data = voxel_data
-
-    def get_width(self):
-        return self.width
-
-    def get_height(self):
-        return self.height
-
-    def get_depth(self):
-        return self.depth
-
-    def get_spacing(self):
-        return self.spacing
-
-    def get_voxel_data(self):
-        return self.voxel_data
-
-    def get_image_number(self):
-        return self.image_number
-
-    def get_sitk_image(self):
-        return self.sitk_image
 
     def get_roi(self, start_and_end):
         image_roi = self.voxel_data[start_and_end[0]:start_and_end[1], start_and_end[2]:start_and_end[3], start_and_end[4]:start_and_end[5]]

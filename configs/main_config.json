@@ -1,19 +1,18 @@
 {
     "ProjectName": "VNet",
     "Settings": {
-        "ModelName": "train_new_001_30e_2d",
+        "ModelName": "train_new_002_1e_2d_diff_loss_nn",
         "SegmentationClasses": [0,1,2],
         "InputChannels": 1,
         "BatchSize": 10,
-        "PatchSize": [64, 64, 64],
-        "Testing": "not",
+        "Testing": "end",
         "SummaryLogDir": "results",
         "Network": {
             "Epochs": 30,
             "Dropout": true,
             "DropoutRate": 0.2,
             "Initializer": "xavier",
-            "Loss": "CategoricalCrossentropyLoss",
+            "Loss": "DiceLossCategoricalCrossentropyLoss",
             "ActivationFunction": "relu",
             "NetworkSavingRange": 30,
             "NetworkSavingPath": "model/",

@@ -1,0 +1,24 @@
+{
+    "Directories": {
+        "BaseDirectory": null,
+        "InputDirectory": "train_images",
+        "TrainDirectory": "train_images_random",
+        "TestDirectory": "test_images",
+        "PredDirectory": "pred_images"
+    },
+    "Settings": {
+        "Random": true,
+        "Downsampling": 2,
+        "OrderName": "Interpolation",
+        "ZeroPaddingTo": [1536, 640, 512],
+        "PatchSize": [64, 64, 64],
+        "TrainDataSize": 0.7,
+        "Seed": 42
+    },
+    "RandomGeneratorSpecifics": {
+        "ZeroMaxPercentage": 0.4,
+        "RetryAmount": 30,
+        "FgPatchesPercentage": 0.6,
+        "TrainSamples": 5
+    }
+}

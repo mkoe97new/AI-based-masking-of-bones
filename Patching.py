@@ -71,3 +71,34 @@ class Patching():
         )
 
         return dataset
+
+    def create_dataset(self):
+        original_images_list = []
+        label_images_list = []
+        for original_mhd in sorted(self.read_in_dir.glob("original_img*.mhd")):
+            case_id = original_mhd.stem[len("original_img"):]
+            label_mhd = self.read_in_dir / f"label_img{case_id}.mhd"
+
+            image_original = Image()
+            image_label = Image()
+
+            image_original.constructor_image(original_mhd, case_id)
+            image_label.constructor_image(label_mhd, case_id)
+            image_original_voxel_data = image_original.voxel_data
+            image_label_voxel_data = image_label.voxel_data
+
+            image_original_voxel_data = np.expand_dims(image_original_voxel_data, axis=-1)
+            image_label_voxel_data = np.expand_dims(image_label_voxel_data, axis=-1)
+
+            original_images_list.append(image_original_voxel_data)
+            label_images_list.append(image_label_voxel_data)
+
+        original_images_list_np = np.array(original_images_list)
+        label_images_list_np = np.array(label_images_list)
+
+        original_images_list_np = original_images_list_np.astype(np.float32)
+        label_images_list_np = label_images_list_np.astype(np.float32)
+
+        dataset = tf.data.Dataset.from_tensor_slices((original_images_list_np, label_images_list_np))
+
+        return dataset

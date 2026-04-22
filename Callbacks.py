@@ -67,7 +67,7 @@ class SaveTestDataResults(tf.keras.callbacks.Callback):
         if self.testing != "not":
             with open(self.csv_path, mode='w', newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow(["patch", "loss", "accuracy", "mean_iou"])
+                writer.writerow(["patch", "loss", "accuracy", "mean_iou", "accuracy_bg", "accuracy_class_1", "accuracy_class_2"])
 
     def intersection_union_per_patch(self, y_true, y_pred, num_classes):
         intersections = np.zeros(num_classes, dtype=np.int64)
@@ -142,19 +142,21 @@ class SaveTestDataResults(tf.keras.callbacks.Callback):
             all_gt_flat = np.concatenate(all_gt).astype(np.int32)
 
             cm = confusion_matrix(all_gt_flat, all_preds_flat, labels=list(range(self.num_classes)))
-        return mean_loss, mean_accuracy, mean_iou, cm
+            per_class_accuracy = cm.diagonal() / (cm.sum(axis=1) + 1e-7)
+        return mean_loss, mean_accuracy, mean_iou, cm, per_class_accuracy
 
     def on_train_end(self, logs=None):
         if self.testing != "not":
-            test_loss, test_accuracy, test_mean_iou, cm = self.test_test_dataset()
+            test_loss, test_accuracy, test_mean_iou, cm, per_class_acc = self.test_test_dataset()
 
-            with open(self.csv_path, mode='a', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow([self.patch, test_loss, test_accuracy, test_mean_iou])
+            if cm is None:
+                with open(self.csv_path, mode='a', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow([self.patch, test_loss, test_accuracy, test_mean_iou, -1, -1, -1])
 
-            print(f"Test: Patch {self.patch}, Loss {test_loss}, Accuracy {test_accuracy}, Mean IoU {test_mean_iou}")
+                print(f"Test: Patch {self.patch}, Loss {test_loss}, Accuracy {test_accuracy}, Mean IoU {test_mean_iou}")
 
-            if cm is not None:
+            else:
                 sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
 
                 plt.xlabel("Predicted")
@@ -163,6 +165,12 @@ class SaveTestDataResults(tf.keras.callbacks.Callback):
 
                 plt.savefig(self.cm_path)
                 plt.close()
+
+                with open(self.csv_path, mode='a', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow([self.patch, test_loss, test_accuracy, test_mean_iou, per_class_acc[0], per_class_acc[1], per_class_acc[2]])
+
+                print(f"Test: Patch {self.patch}, Loss {test_loss}, Accuracy {test_accuracy}, Mean IoU {test_mean_iou}, Accuracy Background {per_class_acc[0]}, Accuracy Class 1 {per_class_acc[1]}, Accuracy Class 2 {per_class_acc[2]}")
 
     def set_model(self, model):
         super().set_model(model)

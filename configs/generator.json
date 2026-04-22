@@ -7,10 +7,18 @@
         "PredDirectory": "pred_images"
     },
     "Settings": {
+        "Random": false,
         "Downsampling": 2,
-        "OrderName": "Interpolation",
+        "OrderName": "NN",
         "ZeroPaddingTo": [1536, 640, 512],
+        "PatchSize": [64, 64, 64],
         "TrainDataSize": 0.7,
         "Seed": 42
+    },
+    "RandomGeneratorSpecifics": {
+        "ZeroMaxPercentage": 0.4,
+        "RetryAmount": 30,
+        "FgPatchesPercentage": 0.7,
+        "TrainSamples": 5
     }
 }

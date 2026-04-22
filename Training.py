@@ -1,5 +1,7 @@
 import datetime
 import os
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 import sys
 from pathlib import Path
 import time
@@ -9,6 +11,7 @@ from tqdm import tqdm
 
 from Helper import Helper
 from Callbacks import SaveTrainDataResults, SaveNetwork, SaveTestDataResults
+from RandomPatchCallbacks import SaveTrainRandomDataResults, SaveRandomNetwork, SaveTestRandomDataResults
 from VNet10 import VNet
 from Patching import Patching
 
@@ -37,6 +40,7 @@ class Training:
 
         self.seed = self.image_generator_config_json['Settings']['Seed']
         self.downsampling = self.image_generator_config_json['Settings']['Downsampling']
+        self.random = self.image_generator_config_json['Settings']['Random']
 
         # training configuration
         self.model_name = self.config['Settings']['ModelName']
@@ -45,7 +49,7 @@ class Training:
         self.label_classes = self.config['Settings']['SegmentationClasses']
 
         self.batch_size = self.config['Settings']['BatchSize']
-        self.patch_size = self.config['Settings']['PatchSize']
+        self.patch_size = self.image_generator_config_json['Settings']['PatchSize']
         self.testing = self.config['Settings']['Testing']
         if self.directory is None:
             self.summary_log_dir = Path(config['Settings']['SummaryLogDir']) / Path(self.model_name)
@@ -110,6 +114,12 @@ class Training:
         test_callback = SaveTestDataResults(current_patch_number, self.summary_log_dir, self.patch_size, self.test_dir, self.seed, len(self.label_classes), total_patches, last_patch_position, loss_function, self.testing, confusion_matrix)
         return train_callback, model_callback, test_callback
 
+    def init_random_callbacks(self, loss_function):
+        train_callback = SaveTrainRandomDataResults(self.summary_log_dir)
+        model_callback = SaveRandomNetwork(self.network_saving_range, self.network_saving_path)
+        test_callback = SaveTestRandomDataResults(self.summary_log_dir, self.patch_size, self.test_dir, self.seed, len(self.label_classes), loss_function, self.testing)
+        return train_callback, model_callback, test_callback
+
     def train(self):
         print("{}: VNet Tensorflow training start...".format(datetime.datetime.now()))
         self.print_config_parames()
@@ -118,7 +128,7 @@ class Training:
 
 
         optimizer = Helper.get_optimizer(self.optimizer_name, self.learning_rate)
-        loss_function = Helper.get_loss_function(self.activation_function_name)
+        loss_function = Helper.get_loss_function(self.loss_function_name)
 
         last_patch_position, total_patches = Helper.count_patches(self.train_dir, self.patch_size)
         current_patch_position = [0,0,0]
@@ -162,6 +172,34 @@ class Training:
                 self.network.fit(self.train_dataset, epochs=self.epochs, verbose=0,
                                  callbacks=[train_callback, model_callback, test_callback])
 
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Elapsed time: {elapsed_time} seconds")
+
+    def random_patch_train(self):
+        print("{}: VNet Tensorflow training start...".format(datetime.datetime.now()))
+        self.print_config_parames()
+        Helper.set_seed(self.seed)
+        start_time = time.time()
+
+        optimizer = Helper.get_optimizer(self.optimizer_name, self.learning_rate)
+        loss_function = Helper.get_loss_function(self.loss_function_name)
+
+        if not self.existing_model or not self.existing_model.exists():
+            self.network = self.build_VNet(optimizer, loss_function)
+        else:
+            self.network = Helper.load_VNet(self.existing_model, optimizer, loss_function)
+
+        os.makedirs(self.network_saving_path, exist_ok=True)
+        os.makedirs(self.summary_log_dir, exist_ok=True)
+
+        dataset = self.train_patching.create_dataset()
+        self.train_dataset = self.train_patching.shuffle(dataset, self.seed, self.batch_size)
+
+        train_callback, model_callback, test_callback = self.init_random_callbacks(loss_function)
+        print("{}: Epochs starting ...".format(datetime.datetime.now()))
+        self.network.fit(self.train_dataset, epochs=self.epochs, verbose=1,
+                         callbacks=[train_callback, model_callback, test_callback])
 
         end_time = time.time()
         elapsed_time = end_time - start_time

@@ -25,11 +25,38 @@ class Helper:
         return optimizer
 
     @staticmethod
+    def dice_loss(y_true, y_pred, smooth=1e-5):
+        y_true = tf.squeeze(y_true, axis=-1)  # -> [B, D, H, W]
+        y_true = tf.cast(y_true, tf.int32)
+
+        num_classes = tf.shape(y_pred)[-1]
+        y_true_one_hot = tf.one_hot(y_true, depth=num_classes)  # -> [B, D, H, W, 3]
+        y_true_one_hot = tf.cast(y_true_one_hot, tf.float32)
+
+        y_pred = tf.cast(y_pred, tf.float32)
+
+        # optionally ignore background (channel 0)
+        y_true_one_hot = y_true_one_hot[..., 1:]
+        y_pred = y_pred[..., 1:]
+
+        intersection = tf.reduce_sum(y_true_one_hot * y_pred, axis=[1, 2, 3])
+        denominator = tf.reduce_sum(y_true_one_hot + y_pred, axis=[1, 2, 3])
+
+        dice = (2. * intersection + smooth) / (denominator + smooth)
+        return 1 - tf.reduce_mean(dice)
+
+
+    @staticmethod
     def get_loss_function(loss_function_name):
         if loss_function_name == 'CategoricalCrossentropyLoss':
             loss_function = tf.keras.losses.SparseCategoricalCrossentropy()
         elif loss_function_name == 'DiceLoss':
             loss_function = tf.keras.losses.Dice()
+        elif loss_function_name == 'DiceLossCategoricalCrossentropyLoss':
+            ce = tf.keras.losses.SparseCategoricalCrossentropy()
+            def combined_loss(y_true, y_pred):
+                return 0.5 * ce(y_true, y_pred) + 0.5 * Helper.dice_loss(y_true, y_pred)
+            return combined_loss
         else:
             loss_function = tf.keras.losses.SparseCategoricalCrossentropy()
         return loss_function
