@@ -23,23 +23,23 @@ Each stage is controlled by its own configuration file.
 ## 📁 Project Structure
 ```
 AI-based-masking-of-bones/
-├── configs/              # Folder for all config files
-│   ├── generator.json    # Config for generating new images for training/testing from the original
-│   ├── main_config.json  # Config for training the model
-│   └── test_config.json  # Config if extra testing is wanted after training has been finished
-├── Callbacks.py          # Python code to define all Callbacks which are used to save data during the training or testing process
-├── graphing.Rmd          # R code to draw graphs from the training and testing output
-├── Helper.py             # Python code to define helper functions needed by the training and testing process
-├── Image8.py             # Python code to define an Image with all its data (including the voxel array)
-├── ImageGenerator.py     # Python code to define functions to generate the images for training and testing from the original
-├── main.py               # general starting point of the model
-├── numbers_figures.py    # general starting point of the model
-├── Patching.py           # Python code to define the necessary functions which are used by training/testing for the patching of the whole image
-├── README.md             # Readme to illustrate a general documentation
-├── requirements.txt      # Requirements needed to run the code, includes all pip installations
-├── Testing.py            # Python code to define all functions needed for the testing process
-├── Training.py           # Python code to define all functions needed for the training process
-├── VNet10.py             # Python code to define the archtecture of the used VNet
+├── configs/                # Folder for all config files
+│   ├── generator.json      # Config for generating new images for training/testing from the original
+│   ├── main_config.json    # Config for training the model
+│   └── test_config.json    # Config if extra testing is wanted after training has been finished
+├── Callbacks.py            # Python code to define all Callbacks which are used to save data during the training or testing process
+├── graphing.Rmd            # R code to draw graphs from the training and testing output
+├── Helper.py               # Python code to define helper functions needed by the training and testing process
+├── Image8.py               # Python code to define an Image with all its data (including the voxel array)
+├── ImageGenerator.py       # Python code to define functions to generate the images for training and testing from the original
+├── main.py                 # general starting point of the model
+├── Patching.py             # Python code to define the necessary functions which are used by training/testing for the patching of the whole image
+├── RandomPatchCallbacks.py # Python code to define all Callbacks which are used to save data during the training or testing process. This python file is used only if random sample extraction is activated
+├── README.md               # Readme to illustrate a general documentation
+├── requirements.txt        # Requirements needed to run the code, includes all pip installations
+├── Testing.py              # Python code to define all functions needed for the testing process
+├── Training.py             # Python code to define all functions needed for the training process
+├── VNet10.py               # Python code to define the archtecture of the used VNet
 ```
 
 ---
