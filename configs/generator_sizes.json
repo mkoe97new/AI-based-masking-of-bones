@@ -1,0 +1,24 @@
+{
+    "Directories": {
+        "BaseDirectory": null,
+        "InputDirectory": "project_images_3d",
+        "TrainDirectory": "train_images",
+        "TestDirectory": "test_images",
+        "PredDirectory": "pred_images"
+    },
+    "Settings": {
+        "Method": "sizes",
+        "Downsampling": 2,
+        "OrderName": "NN",
+        "ResizeTo": [1536, 640, 512],
+        "PatchSize": [64, 64, 64],
+        "TrainDataSize": 0.7,
+        "Seed": 42
+    },
+    "RandomGeneratorSpecifics": {
+        "ZeroMaxPercentage": 0.4,
+        "RetryAmount": 30,
+        "FgPatchesPercentage": 0.7,
+        "TrainSamples": 5
+    }
+}

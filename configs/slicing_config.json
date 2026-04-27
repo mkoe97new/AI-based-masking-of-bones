@@ -1,0 +1,17 @@
+{
+    "ProjectName": "VNet",
+    "Settings": {
+        "ModelName": "train_new_test",
+        "SegmentationClasses": [0,1,2],
+        "SlicingWorstImage": true,
+        "SlicingAmount": 10,
+        "ShowWrongPixels": true,
+        "SummaryLogDir": "results",
+        "SlicingDir": "slicing",
+        "Network": {
+            "ActivationFunction": "relu",
+            "NetworkSavingPath": "model/",
+            "ExistingModel": "model_epoch30.keras"
+        }
+    }
+}

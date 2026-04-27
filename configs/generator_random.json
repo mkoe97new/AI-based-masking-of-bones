@@ -7,10 +7,10 @@
         "PredDirectory": "pred_images"
     },
     "Settings": {
-        "Random": true,
-        "Downsampling": 2,
-        "OrderName": "Interpolation",
-        "ZeroPaddingTo": [1536, 640, 512],
+        "Method": "generate_random",
+        "Downsampling": 1,
+        "OrderName": "NN",
+        "ResizeTo": [1472, 512, 448],
         "PatchSize": [64, 64, 64],
         "TrainDataSize": 0.7,
         "Seed": 42
@@ -18,7 +18,7 @@
     "RandomGeneratorSpecifics": {
         "ZeroMaxPercentage": 0.4,
         "RetryAmount": 30,
-        "FgPatchesPercentage": 0.6,
-        "TrainSamples": 5
+        "FgPatchesPercentage": 0.7,
+        "TrainSamples": 6000
     }
 }

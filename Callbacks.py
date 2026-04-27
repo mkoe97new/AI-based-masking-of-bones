@@ -103,7 +103,7 @@ class SaveTestDataResults(tf.keras.callbacks.Callback):
             )
 
             test_dataset = self.test_patching.shuffle(test_dataset, self.seed, 1)
-            for image_patch, gt_patch in test_dataset.take(1):
+            for image_patch, gt_patch, original_path, label_path in test_dataset:
                 pred_logits = self.model(image_patch, training=False)
                 loss_value = self.loss_function(gt_patch, pred_logits).numpy()
 

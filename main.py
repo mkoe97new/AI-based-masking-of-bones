@@ -2,6 +2,9 @@ import argparse
 import json
 import sys
 import os
+
+from Slicing import Slicing
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 from Testing import Testing
@@ -15,7 +18,7 @@ def get_parser():
         '-p', '--phase',
         dest='phase',
         help='Training phase (default=train)',
-        choices=['train', 'test', 'generate_images'],
+        choices=['train', 'test', 'generate', 'generate_2d_slices'],
         default='train')
 
     parser.add_argument(
@@ -35,11 +38,11 @@ def get_parser():
     args = parser.parse_args()
 
     # Require both configs for train / test / predict
-    if args.phase in ['train']:
+    if args.phase in ['train', 'test']:
         if not args.config_json:
-            parser.error('--config_json is required for phase train')
+            parser.error('--config_json is required for phase train and test')
         if not args.generator_config_json:
-            parser.error('--generator_config_json is required for phase train')
+            parser.error('--generator_config_json is required for phase train and test')
 
     return args
 
@@ -54,7 +57,7 @@ def main(args):
         with open(args.config_json) as config_json:
             config = json.load(config_json)
         training = Training(config, generator_config_json)
-        if training.random:
+        if training.method == "generate_random":
             training.random_patch_train()
         else:
             training.train()
@@ -62,14 +65,23 @@ def main(args):
         with open(args.config_json) as config_json:
             config = json.load(config_json)
         testing = Testing(config, generator_config_json)
-        testing.test()
-    elif args.phase == "generate_images":
-        if image_generator.random:
-            image_generator.generate_random_images()
+        if testing.random:
+            testing.random_patch_test()
         else:
+            testing.test()
+    elif args.phase == "generate":
+        if image_generator.method == "generate":
             image_generator.generate_images()
             image_generator.train_test_split()
-        #image_generator.check_if_zero()
+        elif image_generator.method == "generate_random":
+            image_generator.generate_random_images()
+        elif image_generator.method == "sizes":
+            image_generator.show_image_sizes()
+    elif args.phase == "generate_2d_slices":
+        with open(args.config_json) as config_json:
+            config = json.load(config_json)
+        slicing = Slicing(config, generator_config_json)
+        slicing.generate_2d_slices()
     else:
         sys.exit("Invalid training phase")
 

@@ -1,11 +1,11 @@
 {
     "ProjectName": "VNet",
     "Settings": {
-        "ModelName": "train_new_002_1e_2d_diff_loss_nn",
+        "ModelName": "train_new_005_30e_1d_bloss_rimg_smaller_img",
         "SegmentationClasses": [0,1,2],
         "InputChannels": 1,
-        "BatchSize": 10,
-        "Testing": "end",
+        "BatchSize": 7,
+        "Testing": "not",
         "SummaryLogDir": "results",
         "Network": {
             "Epochs": 30,

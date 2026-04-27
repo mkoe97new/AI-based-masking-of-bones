@@ -7,10 +7,10 @@
         "PredDirectory": "pred_images"
     },
     "Settings": {
-        "Random": false,
-        "Downsampling": 2,
+        "Method": "generate",
+        "Downsampling": 1,
         "OrderName": "NN",
-        "ZeroPaddingTo": [1536, 640, 512],
+        "ResizeTo": [1472, 512, 448],
         "PatchSize": [64, 64, 64],
         "TrainDataSize": 0.7,
         "Seed": 42

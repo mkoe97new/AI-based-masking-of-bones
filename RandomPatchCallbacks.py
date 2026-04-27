@@ -45,12 +45,13 @@ class SaveRandomNetwork(tf.keras.callbacks.Callback):
             path = "model_epoch{epoch}.keras".format(epoch=epoch + 1)
             model_path = self.filepath / Path(path)
             self.model.save(model_path)
-            print(f"Saved model at patch {self.patch} and epoch {epoch+1}")
+            print(f"Saved model at epoch {epoch+1}")
 
 class SaveTestRandomDataResults(tf.keras.callbacks.Callback):
     def __init__(self, results_path, patch_size, test_data_dir, seed, num_classes, loss_function, testing):
         super(SaveTestRandomDataResults, self).__init__()
-        self.csv_path = results_path / Path("test_log.csv")
+        self.csv_path = results_path / Path("total_test_log.csv")
+        self.sample_acc_path = results_path / Path("sample_test_log.csv")
         self.cm_path = results_path / Path("confusion_matrix_pretty.png")
         self.test_patching = Patching(patch_size, test_data_dir)
         self.test_dir = test_data_dir
@@ -66,6 +67,15 @@ class SaveTestRandomDataResults(tf.keras.callbacks.Callback):
                 writer = csv.writer(f)
                 writer.writerow(["loss", "accuracy", "mean_iou", "accuracy_bg", "accuracy_class_1", "accuracy_class_2"])
 
+            sample_csv_exists = os.path.isfile(self.sample_acc_path)
+            with open(self.sample_acc_path, mode='a', newline='') as f:
+                writer = csv.writer(f)
+
+                if not sample_csv_exists:
+                    writer.writerow([
+                        "sample", "loss", "accuracy", "mean_iou",
+                        "accuracy_bg", "accuracy_class_1", "accuracy_class_2"
+                    ])
     def intersection_union_per_patch(self, y_true, y_pred, num_classes):
         intersections = np.zeros(num_classes, dtype=np.int64)
         unions = np.zeros(num_classes, dtype=np.int64)
@@ -79,6 +89,52 @@ class SaveTestRandomDataResults(tf.keras.callbacks.Callback):
 
         return intersections, unions
 
+    def update_dict(self, sample_csv_dict, pred_dict, gt_dict, original_path, intersections, unions, patch_voxels, loss_value, correct, pred_np, gt_np):
+        if original_path in sample_csv_dict:
+            current_array = sample_csv_dict[original_path]
+            total_intersection = current_array[0] + intersections
+            total_unions = current_array[1] + unions
+            total_voxels = current_array[2] + patch_voxels
+            total_loss = current_array[3] + (loss_value * patch_voxels)
+            total_correct = current_array[4] + correct
+
+            update_array = [total_intersection, total_unions, total_voxels, total_loss, total_correct]
+            sample_csv_dict[original_path] = update_array
+
+            current_pred = pred_dict[original_path]
+            current_pred = np.concatenate([current_pred, pred_np.flatten()])
+            pred_dict[original_path] = current_pred
+
+            current_gt = gt_dict[original_path]
+            current_gt = np.concatenate([current_gt, gt_np.flatten()])
+            gt_dict[original_path] = current_gt
+
+        else:
+            current_array = [intersections, unions, patch_voxels, loss_value, correct]
+            current_pred = pred_np.flatten()
+            current_gt = gt_np.flatten()
+
+            sample_csv_dict[original_path] = current_array
+            pred_dict[original_path] = current_pred
+            gt_dict[original_path] = current_gt
+
+        return sample_csv_dict, pred_dict, gt_dict
+
+    def create_sample_csv(self, sample_csv_dict, pred_dict, gt_dict):
+        for key, value in sample_csv_dict.items():
+            pred_dict_value = pred_dict[key]
+            gt_dict_value = gt_dict[key]
+
+            iou_per_class = value[0] / (value[1] + 1e-7)
+            valid_classes = value[1] > 0
+            mean_iou = np.mean(iou_per_class[valid_classes]) if np.any(valid_classes) else 0.0
+
+            cm = confusion_matrix(gt_dict_value, pred_dict_value, labels=list(range(self.num_classes)))
+            per_class_accuracy = cm.diagonal() / (cm.sum(axis=1) + 1e-7)
+            with open(self.sample_acc_path, mode='a', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow([key, value[3]/value[2], value[4]/value[2], mean_iou, per_class_accuracy[0], per_class_accuracy[1], per_class_accuracy[2]])
+
     def test_test_dataset(self):
         total_loss = 0.0
         total_correct = 0
@@ -90,6 +146,9 @@ class SaveTestRandomDataResults(tf.keras.callbacks.Callback):
         total_unions = np.zeros(self.num_classes)
         current_patch_position = [0, 0, 0]
         last_patch_position, total_patches = Helper.count_patches(self.test_dir, self.patch_size)
+        sample_csv_dict = {}
+        pred_dict = {}
+        gt_dict = {}
 
         for current_patch_number in range(total_patches):
 
@@ -100,7 +159,9 @@ class SaveTestRandomDataResults(tf.keras.callbacks.Callback):
             )
 
             test_dataset = self.test_patching.shuffle(test_dataset, self.seed, 1)
-            for image_patch, gt_patch in test_dataset.take(1):
+            for image_patch, gt_patch, original_path, label_path in test_dataset:
+                original_path = original_path.numpy()[0].decode("utf-8")
+
                 pred_logits = self.model(image_patch, training=False)
                 loss_value = self.loss_function(gt_patch, pred_logits).numpy()
 
@@ -126,6 +187,8 @@ class SaveTestRandomDataResults(tf.keras.callbacks.Callback):
                 total_correct += int(correct)
                 total_voxels += int(patch_voxels)
 
+                sample_csv_dict, pred_dict, gt_dict = self.update_dict(sample_csv_dict, pred_dict, gt_dict, original_path, intersections, unions, patch_voxels, loss_value, correct, pred_np, gt_np)
+
         mean_loss = total_loss / total_voxels
         mean_accuracy = total_correct / total_voxels
 
@@ -135,18 +198,16 @@ class SaveTestRandomDataResults(tf.keras.callbacks.Callback):
 
         all_preds_flat = np.concatenate(all_preds).astype(np.int32)
         all_gt_flat = np.concatenate(all_gt).astype(np.int32)
-
         cm = confusion_matrix(all_gt_flat, all_preds_flat, labels=list(range(self.num_classes)))
         per_class_accuracy = cm.diagonal() / (cm.sum(axis=1) + 1e-7)
+
+        self.create_sample_csv(sample_csv_dict, pred_dict, gt_dict)
+
         return mean_loss, mean_accuracy, mean_iou, cm, per_class_accuracy
 
     def on_train_end(self, logs=None):
         if self.testing != "not":
             test_loss, test_accuracy, test_mean_iou, cm, per_class_acc = self.test_test_dataset()
-
-            with open(self.csv_path, mode='a', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow([test_loss, test_accuracy, test_mean_iou, -1, -1, -1])
 
             sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
 

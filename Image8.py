@@ -33,6 +33,16 @@ class Image:
         self.sitk_image = image_label.sitk_image
         self.voxel_data = image_label.voxel_data
 
+    def empty_image_constructor(self, image_size, downsampling_factor, index):
+        self.voxel_data = np.zeros((image_size[0], image_size[1], image_size[2]))
+        self.width = image_size[2] / downsampling_factor
+        self.height = image_size[1] / downsampling_factor
+        self.depth = image_size[0] / downsampling_factor
+        self.image_number = index
+
+        if downsampling_factor > 1:
+            self.voxel_data = self.downsapling_new(downsampling_factor, 0)
+
     def generate_image_label(self):
         modified_image = np.select(
             [
@@ -86,10 +96,26 @@ class Image:
         image_roi = self.voxel_data[start_and_end[0]:start_and_end[1], start_and_end[2]:start_and_end[3], start_and_end[4]:start_and_end[5]]
         return image_roi
 
-    def pad_image_new(self, zero_padding_to, downsampling_factor, order_name):
-        pad_d = zero_padding_to[0] - self.depth
-        pad_h = zero_padding_to[1] - self.height
-        pad_w = zero_padding_to[2] - self.width
+    def set_roi(self, patch, patch_position, patch_size):
+        z0 = int(patch_position[0]) * patch_size[0]
+        y0 = int(patch_position[1]) * patch_size[1]
+        x0 = int(patch_position[2]) * patch_size[2]
+
+        self.voxel_data[
+            z0:z0 + patch_size[0],
+            y0:y0 + patch_size[1],
+            x0:x0 + patch_size[2]
+            ] = patch
+
+    def resize_image(self, resize_to, downsampling_factor, order_name):
+        self.voxel_data = self.voxel_data[
+          :resize_to[0], :resize_to[1], :resize_to[2]
+          ]
+        self.depth, self.height, self.width = self.voxel_data.shape
+
+        pad_d = resize_to[0] - self.depth
+        pad_h = resize_to[1] - self.height
+        pad_w = resize_to[2] - self.width
 
         padded = np.pad(
             self.voxel_data,
@@ -103,15 +129,18 @@ class Image:
         )
 
         self.voxel_data = padded.copy()
-        self.depth = zero_padding_to[0]
-        self.height = zero_padding_to[1]
-        self.width = zero_padding_to[2]
+        self.depth = resize_to[0]
+        self.height = resize_to[1]
+        self.width = resize_to[2]
         order = self.order_mapping(order_name)
 
         if downsampling_factor > 1:
-            self.voxel_data = self.downsapling_new(downsampling_factor, order)
+            self.depth = resize_to[0] / downsampling_factor
+            self.height = resize_to[1] / downsampling_factor
+            self.width = resize_to[2] / downsampling_factor
+            self.voxel_data = self.downsapling(downsampling_factor, order)
 
-    def downsapling_new(self, factor=2, order=1):
+    def downsapling(self, factor=2, order=1):
             zoom_factors = (1.0 / factor, 1.0 / factor, 1.0 / factor)
             return zoom(self.voxel_data, zoom=zoom_factors, order=order)
 
@@ -125,8 +154,15 @@ class Image:
 
         return order
 
-    def check_if_all_zero(self):
-        values, counts = np.unique(self.voxel_data, return_counts=True)
+    def get_bounding_box(self):
+        # Find all non-background voxels
+        coords = np.argwhere(self.voxel_data > 0)
 
-        for v, c in zip(values, counts):
-            print(f"value {v}: {c}")
+        if coords.size == 0:
+            return None  # no object in image
+
+        # coords are in (z, y, x) order
+        z_min, y_min, x_min = coords.min(axis=0)
+        z_max, y_max, x_max = coords.max(axis=0)
+
+        return (z_min, z_max), (y_min, y_max), (x_min, x_max)

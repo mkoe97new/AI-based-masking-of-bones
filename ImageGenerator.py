@@ -23,10 +23,10 @@ class ImageGenerator:
             self.train_dir = base_path / Path(config['Directories']['TrainDirectory'])
             self.test_dir = base_path / Path(config['Directories']['TestDirectory'])
 
-        self.random = config['Settings']['Random']
+        self.method = config['Settings']['Method']
         self.downsampling = config['Settings']['Downsampling']
         self.order_name = config['Settings']['OrderName']
-        self.zero_padding_to = config['Settings']['ZeroPaddingTo']
+        self.resize_to = config['Settings']['ResizeTo']
         self.patch_size = config['Settings']['PatchSize']
         self.train_data_size = config['Settings']['TrainDataSize']
         self.seed = config['Settings']['Seed']
@@ -47,8 +47,8 @@ class ImageGenerator:
             image_label.constructor_image(path, index)
             image.constructor_original_image(image_label)
 
-            image_label.pad_image_new(self.zero_padding_to, self.downsampling, self.order_name)
-            image.pad_image_new(self.zero_padding_to, self.downsampling, self.order_name)
+            image_label.resize_image(self.resize_to, self.downsampling, self.order_name)
+            image.resize_image(self.resize_to, self.downsampling, self.order_name)
 
             image_label.generate_image_label()
             image.generate_image_original()
@@ -106,6 +106,7 @@ class ImageGenerator:
         random.seed(self.seed)
         original_files = sorted(self.input_dir.glob("*original*.mhd"))
         rng = random.Random(self.seed)
+        no_image_created = 0
 
         pairs = []
         for _ in range(self.train_samples):
@@ -143,7 +144,7 @@ class ImageGenerator:
                 i += 1
 
             if i == self.retry_amount:
-                print("Random Roi not found {}".format(index))
+                no_image_created += 1
             else:
                 image.voxel_data = image_roi
                 image.depth = image_roi.shape[0]
@@ -162,6 +163,7 @@ class ImageGenerator:
 
         count = len(glob.glob(os.path.join(self.train_dir, "*original*.mhd")))
         print(f"Total train images created: {count}")
+        print(f"Total not created_images: {no_image_created}")
 
     def contains_more_zeros_than_allowed(self, zero_max_percentage, label_roi):
         zero_fraction = np.mean(label_roi == 0)
@@ -170,25 +172,88 @@ class ImageGenerator:
         else:
             return False
 
+    def show_image_sizes(self):
+        max_depth = 0
+        max_height = 0
+        max_width = 0
 
-    def check_if_zero(self):
-        print("{}: Zero checker...".format(datetime.datetime.now()))
-        self.train_dir.mkdir(exist_ok=True)
+        min_depth = float('inf')
+        min_height = float('inf')
+        min_width = float('inf')
 
-        for original_mhd in sorted(self.test_dir.glob("original_img*.mhd")):
-            case_id = original_mhd.stem[len("original_img"):]
-            label_mhd = self.test_dir / f"label_img{case_id}.mhd"
+        min_bb_depth_lower = float('inf')
+        min_bb_height_lower = float('inf')
+        min_bb_width_lower = float('inf')
 
-            image_original = Image()
-            image_label = Image()
+        max_bb_depth_upper = 0
+        max_bb_height_upper = 0
+        max_bb_width_upper = 0
 
-            image_original.constructor_image(original_mhd, case_id)
-            image_label.constructor_image(label_mhd, case_id)
+        max_bb_depth_lower = 0
+        max_bb_height_lower = 0
+        max_bb_width_lower = 0
 
-            print(str(original_mhd))
-            image_original.check_if_all_zero()
-            print(str(label_mhd))
-            image_label.check_if_all_zero()
+        min_bb_depth_upper = float('inf')
+        min_bb_height_upper = float('inf')
+        min_bb_width_upper = float('inf')
 
+        for index, path in enumerate(self.input_dir.glob("*.mhd")):
+            image = Image()
+            image.constructor_image(path, index)
+            print(f"{path.name}: {image.depth}, {image.height}, {image.width}")
+
+            bbox = image.get_bounding_box()
+            if bbox is not None:
+                (z_min, z_max), (y_min, y_max), (x_min, x_max) = bbox
+                print(f"Bounding box:")
+                print(f"  Depth: {z_min} → {z_max}")
+                print(f"  Height: {y_min} → {y_max}")
+                print(f"  Width: {x_min} → {x_max}")
+            else:
+                print("  No foreground found!")
+
+            max_depth = max(max_depth, image.depth)
+            max_height = max(max_height, image.height)
+            max_width = max(max_width, image.width)
+
+            min_depth = min(min_depth, image.depth)
+            min_height = min(min_height, image.height)
+            min_width = min(min_width, image.width)
+
+            min_bb_depth_lower = min(min_bb_depth_lower, z_min)
+            min_bb_height_lower = min(min_bb_height_lower, y_min)
+            min_bb_width_lower = min(min_bb_width_lower, x_min)
+
+            max_bb_depth_upper = max(max_bb_depth_upper, z_max)
+            max_bb_height_upper = max(max_bb_height_upper, y_max)
+            max_bb_width_upper = max(max_bb_width_upper, x_max)
+
+            max_bb_depth_lower = max(max_bb_depth_lower, z_min)
+            max_bb_height_lower = max(max_bb_height_lower, y_min)
+            max_bb_width_lower = max(max_bb_width_lower, x_min)
+
+            min_bb_depth_upper = min(min_bb_depth_upper, z_max)
+            min_bb_height_upper = min(min_bb_height_upper, y_max)
+            min_bb_width_upper = min(min_bb_width_upper, x_max)
+
+        print("\nBiggest dimensions:")
+        print("Depth:", max_depth)
+        print("Height:", max_height)
+        print("Width:", max_width)
+
+        print("\nSmallest dimensions:")
+        print("Depth:", min_depth)
+        print("Height:", min_height)
+        print("Width:", min_width)
+
+        print("\nGlobal outer boundaries:")
+        print(f"Depth: {min_bb_depth_lower} → {max_bb_depth_upper}")
+        print(f"Height: {min_bb_height_lower} → {max_bb_height_upper}")
+        print(f"Width: {min_bb_width_lower} → {max_bb_width_upper}")
+
+        print("\nGlobal inner boundaries:")
+        print(f"Depth: {max_bb_depth_lower} → {min_bb_depth_upper}")
+        print(f"Height: {max_bb_height_lower} → {min_bb_height_upper}")
+        print(f"Width: {max_bb_width_lower} → {min_bb_width_upper}")
 
 

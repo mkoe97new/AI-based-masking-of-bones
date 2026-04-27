@@ -1,7 +1,7 @@
 {
     "ProjectName": "VNet",
     "Settings": {
-        "ModelName": "train_new_001_30e_2d",
+        "ModelName": "train_new_004_30e_1d_diff_loss_rand_img",
         "SegmentationClasses": [0,1,2],
         "PatchSize": [64, 64, 64],
         "SummaryLogDir": "results",
@@ -9,10 +9,7 @@
         "Network": {
             "ActivationFunction": "relu",
             "NetworkSavingPath": "model/",
-            "ExistingModel": "model_epoch30.keras",
-            "Optimizer":{
-                "Name": "Adam"
-            }
+            "ExistingModel": "model_epoch30.keras"
         }
     }
 }

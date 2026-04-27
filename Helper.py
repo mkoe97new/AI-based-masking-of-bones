@@ -70,6 +70,13 @@ class Helper:
         return network
 
     @staticmethod
+    def load_VNet_without_compiling(model_path):
+        print("Loading VNet...")
+        network = tf.keras.models.load_model(model_path, custom_objects={'VNet': VNet}, compile=False)
+
+        return network
+
+    @staticmethod
     def get_dimsize_from_mhd(file_path):
         with open(file_path, "r") as f:
             for line in f:

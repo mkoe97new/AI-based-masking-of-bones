@@ -1,4 +1,5 @@
 import datetime
+import math
 import os
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -40,12 +41,11 @@ class Training:
 
         self.seed = self.image_generator_config_json['Settings']['Seed']
         self.downsampling = self.image_generator_config_json['Settings']['Downsampling']
-        self.random = self.image_generator_config_json['Settings']['Random']
+        self.method = self.image_generator_config_json['Settings']['Method']
 
         # training configuration
         self.model_name = self.config['Settings']['ModelName']
         self.input_channel_num = self.config['Settings']['InputChannels']  # is 1 because it is greyscale
-        self.output_channel_num = len(self.config['Settings']['SegmentationClasses'])
         self.label_classes = self.config['Settings']['SegmentationClasses']
 
         self.batch_size = self.config['Settings']['BatchSize']
@@ -149,12 +149,14 @@ class Training:
             ))
             last_patch = current_patch_number == total_patches - 1
 
-            dataset, current_patch_position = self.train_patching.create_patch_dataset(
+            train_dataset_with_paths, current_patch_position = self.train_patching.create_patch_dataset(
                 current_patch_number,
                 current_patch_position,
                 last_patch_position
             )
-
+            dataset = train_dataset_with_paths.map(
+                lambda image, label, original_path, label_path: (image, label)
+            )
             self.train_dataset = self.train_patching.shuffle(dataset, self.seed, self.batch_size)
 
             confusion_matrix = False
@@ -196,74 +198,13 @@ class Training:
         dataset = self.train_patching.create_dataset()
         self.train_dataset = self.train_patching.shuffle(dataset, self.seed, self.batch_size)
 
+        file_count = sum(len(files) for _, _, files in os.walk('.'))
+        steps_per_epoch = math.ceil((file_count/4) / self.batch_size)
         train_callback, model_callback, test_callback = self.init_random_callbacks(loss_function)
         print("{}: Epochs starting ...".format(datetime.datetime.now()))
-        self.network.fit(self.train_dataset, epochs=self.epochs, verbose=1,
-                         callbacks=[train_callback, model_callback, test_callback])
-
+        self.network.fit(self.train_dataset, epochs=self.epochs, steps_per_epoch=steps_per_epoch,
+            verbose=2, callbacks=[train_callback, model_callback, test_callback])
         end_time = time.time()
         elapsed_time = end_time - start_time
         print(f"Elapsed time: {elapsed_time} seconds")
-
-
-    """
-    def predict(self):
-        print("{}: VNet Tensorflow Predict start...".format(datetime.datetime.now()))
-        self.set_seed()
-
-        optimizer = self.get_optimizer()
-        if not self.network:
-            self.load_VNet(optimizer)
-
-        amount_of_patches = int((self.zero_padding_to[0] / self.patch_size[0]) * (
-                self.zero_padding_to[1] / self.patch_size[1]) * (self.zero_padding_to[2] / self.patch_size[2]))
-
-        column_number = -1  # weil ich jeden durchgang + 1 hab und sonst würde ich nicht bei 0 beginnen sondern schon bei 1
-        row_number = 0
-        depth_number = 0
-
-        file_pattern = os.path.join(self.predict_data_dir, f"*raw*")
-        files = glob.glob(file_pattern)
-
-        print_volume = None
-        volumes = np.zeros((self.zero_padding_to[0], self.zero_padding_to[1], self.zero_padding_to[2]))
-        volumes = np.expand_dims(volumes, axis=0)
-        for j in range(len(files) - 1):  # -1 weil ich ja schon eine dimension am anfang eröffne
-            volume = np.zeros((self.zero_padding_to[0], self.zero_padding_to[1], self.zero_padding_to[2]))
-            volume_expanded = np.expand_dims(volume, axis=0)
-            volumes = np.vstack((volumes, volume_expanded))
-
-        for i in range(1, amount_of_patches):
-            # contains only one element
-            column_number, row_number, depth_number, all_labels_all_imgs_one_class = self.create_patch_dataset(
-                i, column_number,
-                row_number,
-                depth_number,
-                self.train_data_dir,
-                "predict")
-
-            start_width = column_number * self.patch_size[0]
-            start_height = row_number * self.patch_size[1]
-            start_depth = depth_number * self.patch_size[2]
-
-            self.predict_dataset_tf = self.predict_dataset_tf.batch(self.batch_size_train)
-            prediction = self.network.predict(self.predict_dataset_tf)
-
-            for k in range(len(prediction)):
-                patch_volume = np.argmax(prediction[k], axis=-1)
-                print_volume = patch_volume
-
-                volumes[k][start_width:start_width + self.patch_size[0],
-                start_height:start_height + self.patch_size[1],
-                start_depth:start_depth + self.patch_size[2]] += patch_volume
-
-            break
-        print("----------------------------------------------------------------------------------")
-        print(print_volume)
-        """
-"""os.makedirs(self.prediction_save_dir + "/" + self.model_name, exist_ok=True)
-for k in range(len(volumes)):
-    file_path = self.prediction_save_dir + "/" + self.model_name + "/" + 'prediciton' + str(k)
-    np.save(file_path, volumes[k])"""
-
 
