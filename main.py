@@ -65,9 +65,9 @@ def main(args):
         with open(args.config_json) as config_json:
             config = json.load(config_json)
         testing = Testing(config, generator_config_json)
-        if testing.random:
+        if testing.method == "generate_random":
             testing.random_patch_test()
-        else:
+        elif testing.method == "generate":
             testing.test()
     elif args.phase == "generate":
         if image_generator.method == "generate":

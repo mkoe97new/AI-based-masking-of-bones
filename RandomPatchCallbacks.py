@@ -1,8 +1,10 @@
 import csv
 import os
+import re
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 from matplotlib import pyplot as plt
 import seaborn as sns
@@ -40,19 +42,28 @@ class SaveRandomNetwork(tf.keras.callbacks.Callback):
         self.filepath = network_saving_path
         os.makedirs(self.filepath, exist_ok=True)
 
+    def _save_model(self, epoch):
+        path = f"model_epoch{epoch}.keras"
+        model_path = self.filepath / Path(path)
+        self.model.save(model_path)
+        print(f"Saved model at epoch {epoch}")
+
+    def on_train_begin(self, logs=None):
+        # Save initial weights before any training
+        self._save_model(0)
+
     def on_epoch_end(self, epoch, logs=None):
         if (epoch + 1) % self.save_every == 0:
-            path = "model_epoch{epoch}.keras".format(epoch=epoch + 1)
-            model_path = self.filepath / Path(path)
-            self.model.save(model_path)
-            print(f"Saved model at epoch {epoch+1}")
+            self._save_model(epoch+1)
 
 class SaveTestRandomDataResults(tf.keras.callbacks.Callback):
     def __init__(self, results_path, patch_size, test_data_dir, seed, num_classes, loss_function, testing):
         super(SaveTestRandomDataResults, self).__init__()
+        self.results_path = results_path
         self.csv_path = results_path / Path("total_test_log.csv")
         self.sample_acc_path = results_path / Path("sample_test_log.csv")
-        self.cm_path = results_path / Path("confusion_matrix_pretty.png")
+        self.sample_freq_path = results_path / Path("sample_freq_log.csv")
+        self.cm_path = results_path / Path("confusion_matrix.png")
         self.test_patching = Patching(patch_size, test_data_dir)
         self.test_dir = test_data_dir
         self.patch_size = patch_size
@@ -65,7 +76,7 @@ class SaveTestRandomDataResults(tf.keras.callbacks.Callback):
         if self.testing != "not":
             with open(self.csv_path, mode='w', newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow(["loss", "accuracy", "mean_iou", "accuracy_bg", "accuracy_class_1", "accuracy_class_2"])
+                writer.writerow(["accuracy", "mean_iou", "accuracy_bg", "accuracy_class_1", "accuracy_class_2"])
 
             sample_csv_exists = os.path.isfile(self.sample_acc_path)
             with open(self.sample_acc_path, mode='a', newline='') as f:
@@ -75,6 +86,18 @@ class SaveTestRandomDataResults(tf.keras.callbacks.Callback):
                     writer.writerow([
                         "sample", "loss", "accuracy", "mean_iou",
                         "accuracy_bg", "accuracy_class_1", "accuracy_class_2"
+                    ])
+
+            sample_freq_csv_exists = os.path.isfile(self.sample_freq_path)
+            with open(self.sample_freq_path, mode='a', newline='') as f:
+                writer = csv.writer(f)
+
+                if not sample_freq_csv_exists:
+                    writer.writerow([
+                        "sample", "loss",
+                        "true0_pred0", "true0_pred1", "true0_pred2",
+                        "true1_pred0", "true1_pred1", "true1_pred2",
+                        "true2_pred0", "true2_pred1", "true2_pred2",
                     ])
     def intersection_union_per_patch(self, y_true, y_pred, num_classes):
         intersections = np.zeros(num_classes, dtype=np.int64)
@@ -120,11 +143,13 @@ class SaveTestRandomDataResults(tf.keras.callbacks.Callback):
 
         return sample_csv_dict, pred_dict, gt_dict
 
-    def create_sample_csv(self, sample_csv_dict, pred_dict, gt_dict):
+    def create_sample_output(self, sample_csv_dict, pred_dict, gt_dict):
         for key, value in sample_csv_dict.items():
+            print("key", str(key))
             pred_dict_value = pred_dict[key]
             gt_dict_value = gt_dict[key]
 
+            loss = value[3] / value[2]
             iou_per_class = value[0] / (value[1] + 1e-7)
             valid_classes = value[1] > 0
             mean_iou = np.mean(iou_per_class[valid_classes]) if np.any(valid_classes) else 0.0
@@ -134,6 +159,27 @@ class SaveTestRandomDataResults(tf.keras.callbacks.Callback):
             with open(self.sample_acc_path, mode='a', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow([key, value[3]/value[2], value[4]/value[2], mean_iou, per_class_accuracy[0], per_class_accuracy[1], per_class_accuracy[2]])
+
+            with open(self.sample_freq_path, mode='a', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    key, loss,
+                    cm[0, 0], cm[0, 1], cm[0, 2],
+                    cm[1, 0], cm[1, 1], cm[1, 2],
+                    cm[2, 0], cm[2, 1], cm[2, 2],
+                ])
+
+            key_number = re.search(r'\d+', key).group()
+            cm_sample_path_string = "confusion_matrix_" + str(key_number) + ".png"
+            cm_sample_path = self.results_path / Path(cm_sample_path_string)
+            sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+
+            plt.xlabel("Predicted")
+            plt.ylabel("True")
+            plt.title("Confusion Matrix")
+
+            plt.savefig(cm_sample_path)
+            plt.close()
 
     def test_test_dataset(self):
         total_loss = 0.0
@@ -189,40 +235,54 @@ class SaveTestRandomDataResults(tf.keras.callbacks.Callback):
 
                 sample_csv_dict, pred_dict, gt_dict = self.update_dict(sample_csv_dict, pred_dict, gt_dict, original_path, intersections, unions, patch_voxels, loss_value, correct, pred_np, gt_np)
 
-        mean_loss = total_loss / total_voxels
-        mean_accuracy = total_correct / total_voxels
+        self.create_sample_output(sample_csv_dict, pred_dict, gt_dict)
 
-        iou_per_class = total_intersections / (total_unions + 1e-7)
-        valid_classes = total_unions > 0
-        mean_iou = np.mean(iou_per_class[valid_classes]) if np.any(valid_classes) else 0.0
-
-        all_preds_flat = np.concatenate(all_preds).astype(np.int32)
-        all_gt_flat = np.concatenate(all_gt).astype(np.int32)
-        cm = confusion_matrix(all_gt_flat, all_preds_flat, labels=list(range(self.num_classes)))
-        per_class_accuracy = cm.diagonal() / (cm.sum(axis=1) + 1e-7)
-
-        self.create_sample_csv(sample_csv_dict, pred_dict, gt_dict)
-
-        return mean_loss, mean_accuracy, mean_iou, cm, per_class_accuracy
+        return
 
     def on_train_end(self, logs=None):
         if self.testing != "not":
-            test_loss, test_accuracy, test_mean_iou, cm, per_class_acc = self.test_test_dataset()
+            self.test_test_dataset()
 
-            sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+            df = pd.read_csv(self.sample_freq_path)
+            cm_total = np.array([
+                [
+                    df["true0_pred0"].sum(),
+                    df["true0_pred1"].sum(),
+                    df["true0_pred2"].sum(),
+                ],
+                [
+                    df["true1_pred0"].sum(),
+                    df["true1_pred1"].sum(),
+                    df["true1_pred2"].sum(),
+                ],
+                [
+                    df["true2_pred0"].sum(),
+                    df["true2_pred1"].sum(),
+                    df["true2_pred2"].sum(),
+                ],
+            ])
 
+            sns.heatmap(cm_total, annot=True, fmt="d", cmap="Blues")
             plt.xlabel("Predicted")
             plt.ylabel("True")
-            plt.title("Confusion Matrix")
-
+            plt.title("Overall confusion matrix")
             plt.savefig(self.cm_path)
             plt.close()
 
+            tp = np.diag(cm_total)
+            fn = cm_total.sum(axis=1) - tp
+            fp = cm_total.sum(axis=0) - tp
+
+            test_accuracy = tp.sum() / cm_total.sum()
+            per_class_acc = tp / (tp + fn)
+            per_class_iou = tp / (tp + fp + fn)
+            test_mean_iou = np.mean(per_class_iou)
+
             with open(self.csv_path, mode='a', newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow([test_loss, test_accuracy, test_mean_iou, per_class_acc[0], per_class_acc[1], per_class_acc[2]])
+                writer.writerow([test_accuracy, test_mean_iou, per_class_acc[0], per_class_acc[1], per_class_acc[2]])
 
-            print(f"Test: Loss {test_loss}, Accuracy {test_accuracy}, Mean IoU {test_mean_iou}, Accuracy Background {per_class_acc[0]}, Accuracy Class 1 {per_class_acc[1]}, Accuracy Class 2 {per_class_acc[2]}")
+            print(f"Test: Accuracy {test_accuracy}, Mean IoU {test_mean_iou}, Accuracy Background {per_class_acc[0]}, Accuracy Class 1 {per_class_acc[1]}, Accuracy Class 2 {per_class_acc[2]}")
 
     def set_model(self, model):
         super().set_model(model)

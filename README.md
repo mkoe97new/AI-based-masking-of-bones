@@ -179,8 +179,3 @@ Controls testing, after training has been finished.
 }
 ```
 
-### 3. Testing Configuration (`slicing_config.json`)
-
-Controls testing, after training has been finished.
-
-

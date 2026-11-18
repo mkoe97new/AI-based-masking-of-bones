@@ -1,7 +1,7 @@
 {
     "ProjectName": "VNet",
     "Settings": {
-        "ModelName": "train_new_004_30e_1d_diff_loss_rand_img",
+        "ModelName": "train_new_007_60e_1d_bloss_rimg_diffini_diff_act",
         "SegmentationClasses": [0,1,2],
         "PatchSize": [64, 64, 64],
         "SummaryLogDir": "results",
@@ -9,7 +9,7 @@
         "Network": {
             "ActivationFunction": "relu",
             "NetworkSavingPath": "model/",
-            "ExistingModel": "model_epoch30.keras"
+            "ExistingModel": "model_epoch0.keras"
         }
     }
 }

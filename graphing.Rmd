@@ -10,11 +10,13 @@ library(readr)
 library(dplyr)
 library(purrr)
 library(ggplot2)
+library(tidyverse)
 ```
 
 ### Read In Datasets
 ```{r}
-filepath <- "results/train_new_001"
+filepath <- "results/final_training"
+
 training_files <- list.files(
   filepath,
   pattern = "train.*\\.csv$",
@@ -22,7 +24,7 @@ training_files <- list.files(
 )
 
 testing_files <- list.files(
-  filepath
+  filepath,
   pattern = "test.*\\.csv$",
   full.names = TRUE
 )
@@ -62,7 +64,7 @@ patch_test_dataset <- combined_test_data %>%
 ### Draw Training Graphs
 ```{r}
 ggplot(combined_training_data, aes(x = epoch, y = loss)) +
-  geom_line(alpha = 0.5) +
+  geom_line(alpha = 0.5, color = "darkgreen") +
   labs(
     title = "Epoch vs Loss",
     x = "Epoch",
@@ -71,57 +73,79 @@ ggplot(combined_training_data, aes(x = epoch, y = loss)) +
   theme_minimal()
 
 ggplot(combined_training_data, aes(x = epoch, y = accuracy)) +
-  geom_line(alpha = 0.5) +
+  geom_line(alpha = 0.5, color = "darkgreen") +
   labs(
-    title = "Epoch vs Accuracy",
+    title = "Epoch vs Voxel-Wise Agreement",
     x = "Epoch",
-    y = "Accuracy"
+    y = "Voxel-Wise Agreement"
   ) +
   theme_minimal()
 ```
 
 ```{r}
-ggplot(patch_train_dataset, aes(x = epoch, y = loss)) +
-  geom_line(alpha = 0.5) +
-  labs(
-    title = "Epoch vs Loss per Patch",
-    x = "Epoch",
-    y = "Loss"
-  ) +
-  theme_minimal()
+testing_files <- list.files(
+  filepath,
+  pattern = ".*test.*\\.csv$",
+  full.names = TRUE
+)
 
-ggplot(patch_train_dataset, aes(x = epoch, y = accuracy)) +
-  geom_line(alpha = 0.5) +
-  labs(
-    title = "Epoch vs Accuracy per Patch",
-    x = "Epoch",
-    y = "Accuracy"
-  ) +
-  theme_minimal()
+testing_files
+```
+```{r}
+combined_testing_data <- testing_files %>%
+  map_df(~ {
+    filename <- basename(.x)
+    
+    epoch <- str_extract(filename, "\\d+") %>%
+      as.numeric()
+    
+    read_csv(.x) %>%
+      mutate(epoch = epoch)
+  })
+
+combined_testing_data
 ```
 
-### Draw Tesing Graphs
+
 ```{r}
-ggplot(combined_test_data, aes(x = epoch, y = loss)) +
-  geom_line(alpha = 0.5) +
+ggplot(combined_testing_data, aes(x = epoch, y = accuracy)) +
+  geom_line(alpha = 0.5, color = "darkgreen") +
   labs(
-    title = "Epoch vs Loss",
+    title = "Epoch vs Voxel-Wise Agreement",
     x = "Epoch",
-    y = "Loss"
+    y = "Voxel-Wise Agreement"
   ) +
   theme_minimal()
 
-ggplot(combined_test_data, aes(x = epoch, y = accuracy)) +
-  geom_line(alpha = 0.5) +
+ggplot(combined_testing_data, aes(x = epoch, y = accuracy_bg)) +
+  geom_line(alpha = 0.5, color = "darkgreen") +
   labs(
-    title = "Epoch vs Accuracy",
+    title = "Epoch vs Accuracy Background",
     x = "Epoch",
-    y = "Accuracy"
+    y = "Accuracy Background"
   ) +
   theme_minimal()
 
-ggplot(combined_test_data, aes(x = epoch, y = mean_iou)) +
-  geom_line(alpha = 0.5) +
+ggplot(combined_testing_data, aes(x = epoch, y = accuracy_class_1)) +
+  geom_line(alpha = 0.5, color = "darkgreen") +
+  labs(
+    title = "Epoch vs Accuracy Cortical Bone",
+    x = "Epoch",
+    y = "Accuracy Cortical Bone"
+  ) +
+  theme_minimal()
+
+ggplot(combined_testing_data, aes(x = epoch, y = accuracy_class_2)) +
+  geom_line(alpha = 0.5, color = "darkgreen") +
+  labs(
+    title = "Epoch vs Accuracy Trabecular Bone",
+    x = "Epoch",
+    y = "Accuracy Trabecular Bone"
+  ) +
+  theme_minimal()
+
+ggplot(combined_testing_data, aes(x = epoch, y = mean_iou)) +
+  geom_line(alpha = 0.5, color = "darkgreen") +
   labs(
     title = "Epoch vs Mean IoU",
     x = "Epoch",
@@ -130,31 +154,30 @@ ggplot(combined_test_data, aes(x = epoch, y = mean_iou)) +
   theme_minimal()
 ```
 
+
 ```{r}
-ggplot(patch_test_dataset, aes(x = epoch, y = loss)) +
-  geom_line(alpha = 0.5) +
-  labs(
-    title = "Epoch vs Loss per Patch",
-    x = "Epoch",
-    y = "Loss"
-  ) +
-  theme_minimal()
+combined_long <- combined_testing_data %>%
+  select(epoch, accuracy_bg, accuracy_class_1, accuracy_class_2) %>%
+  pivot_longer(
+    cols = c(accuracy_bg, accuracy_class_1, accuracy_class_2),
+    names_to = "metric",
+    values_to = "accuracy"
+  ) %>%
+  mutate(metric = recode(metric,
+    accuracy_bg = "Background",
+    accuracy_class_1 = "Cortical Bone",
+    accuracy_class_2 = "Trabecular Bone"
+  ))
 
-ggplot(patch_test_dataset, aes(x = epoch, y = accuracy)) +
-  geom_line(alpha = 0.5) +
+# Plot
+ggplot(combined_long, aes(x = epoch, y = accuracy, color = metric)) +
+  geom_line(alpha = 0.7) +
   labs(
-    title = "Epoch vs Accuracy per Patch",
+    title = "Epoch vs Voxel-Wise Agreement by Class",
     x = "Epoch",
-    y = "Accuracy"
-  ) +
-  theme_minimal()
-
-ggplot(patch_test_dataset, aes(x = epoch, y = mean_iou)) +
-  geom_line(alpha = 0.5) +
-  labs(
-    title = "Epoch vs Mean IoU per Patch",
-    x = "Epoch",
-    y = "Mean IoU"
+    y = "Accuracy",
+    color = "Class"
   ) +
   theme_minimal()
 ```
+

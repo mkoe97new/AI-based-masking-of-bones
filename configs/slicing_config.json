@@ -1,17 +1,20 @@
 {
     "ProjectName": "VNet",
     "Settings": {
-        "ModelName": "train_new_test",
+        "ModelName": "train_new_007_60e_1d_bloss_rimg_diffini_diff_act_all",
         "SegmentationClasses": [0,1,2],
-        "SlicingWorstImage": true,
+        "SlicingWorstImage": false,
+        "SelectWorstSlices": false,
         "SlicingAmount": 10,
         "ShowWrongPixels": true,
+        "Axis": [1],
+        "NoEmpty": true,
         "SummaryLogDir": "results",
         "SlicingDir": "slicing",
         "Network": {
             "ActivationFunction": "relu",
             "NetworkSavingPath": "model/",
-            "ExistingModel": "model_epoch30.keras"
+            "ExistingModel": "model_epoch40.keras"
         }
     }
 }

@@ -1,20 +1,20 @@
 {
     "ProjectName": "VNet",
     "Settings": {
-        "ModelName": "train_new_005_30e_1d_bloss_rimg_smaller_img",
+        "ModelName": "train_new_007_60e_1d_bloss_rimg_diffini_diff_act_all",
         "SegmentationClasses": [0,1,2],
         "InputChannels": 1,
         "BatchSize": 7,
         "Testing": "not",
         "SummaryLogDir": "results",
         "Network": {
-            "Epochs": 30,
+            "Epochs": 1,
             "Dropout": true,
             "DropoutRate": 0.2,
-            "Initializer": "xavier",
+            "Initializer": "he",
             "Loss": "DiceLossCategoricalCrossentropyLoss",
-            "ActivationFunction": "relu",
-            "NetworkSavingRange": 30,
+            "ActivationFunction": "prelu",
+            "NetworkSavingRange": 10,
             "NetworkSavingPath": "model/",
             "ExistingModel": null,
             "Optimizer":{

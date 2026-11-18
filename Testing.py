@@ -31,7 +31,7 @@ class Testing:
             self.log_dir = base_path / Path("logs")
 
         self.seed = self.image_generator_config_json['Settings']['Seed']
-        self.random = self.image_generator_config_json['Settings']['Random']
+        self.method = self.image_generator_config_json['Settings']['Method']
 
         # training configuration
         self.model_name = config['Settings']['ModelName']
